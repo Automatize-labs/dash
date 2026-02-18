@@ -1,0 +1,280 @@
+{
+    "name": "Agente ZapAI - Hybrid Flow V2",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "chat",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "name": "Webhook Channel",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://equipeautomatize--agente-serv-whatsapp-fastapi-app.modal.run/webhook/execute",
+                "authentication": "none",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "client_id",
+                            "value": "={{$json.body.client_id}}"
+                        },
+                        {
+                            "name": "lead_phone",
+                            "value": "={{$json.body.lead_phone}}"
+                        },
+                        {
+                            "name": "message",
+                            "value": "={{$json.body.message}}"
+                        },
+                        {
+                            "name": "openai_api_key",
+                            "value": "={{$json.body.openai_api_key}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Execute Agent",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                250,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "dataType": "string",
+                "value1": "={{$json.type}}",
+                "rules": {
+                    "rules": [
+                        {
+                            "value2": "message"
+                        },
+                        {
+                            "value2": "tool_call",
+                            "output": 1
+                        }
+                    ]
+                }
+            },
+            "name": "Check Response Type",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                500,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{$json}}"
+            },
+            "name": "Respond Message",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                800,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "dataType": "string",
+                "value1": "={{$json.tool_name}}",
+                "rules": {
+                    "rules": [
+                        {
+                            "value2": "disponibilidade",
+                            "output": 0
+                        },
+                        {
+                            "value2": "check_availability",
+                            "output": 0
+                        }
+                    ]
+                }
+            },
+            "name": "Route Tool",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                800,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://api.exemplo.com/disponibilidade",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "checkin",
+                            "value": "={{$json.tool_params.data_inicio || $json.tool_params.checkin}}"
+                        },
+                        {
+                            "name": "checkout",
+                            "value": "={{$json.tool_params.data_fim || $json.tool_params.checkout}}"
+                        },
+                        {
+                            "name": "adults",
+                            "value": "={{$json.tool_params.adultos}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Tool: Disponibilidade",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1100,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://equipeautomatize--agente-serv-whatsapp-fastapi-app.modal.run/webhook/tool-result",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "context_id",
+                            "value": "={{$('Execute Agent').item.json.context_id}}"
+                        },
+                        {
+                            "name": "tool_call_id",
+                            "value": "={{$('Execute Agent').item.json.tool_call_id}}"
+                        },
+                        {
+                            "name": "tool_name",
+                            "value": "={{$('Execute Agent').item.json.tool_name}}"
+                        },
+                        {
+                            "name": "tool_result",
+                            "value": "={{$json}}"
+                        },
+                        {
+                            "name": "client_id",
+                            "value": "={{$('Webhook Channel').item.json.body.client_id}}"
+                        },
+                        {
+                            "name": "lead_phone",
+                            "value": "={{$('Webhook Channel').item.json.body.lead_phone}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Resume Agent",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1400,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{$json}}"
+            },
+            "name": "Respond Final",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1700,
+                200
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook Channel": {
+            "main": [
+                [
+                    {
+                        "node": "Execute Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Execute Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Check Response Type",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Response Type": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Route Tool",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Route Tool": {
+            "main": [
+                [
+                    {
+                        "node": "Tool: Disponibilidade",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool: Disponibilidade": {
+            "main": [
+                [
+                    {
+                        "node": "Resume Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Resume Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Final",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

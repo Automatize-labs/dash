@@ -1,0 +1,486 @@
+{
+    "name": "Agente IA - Orquestrador Principal",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "agente-webhook",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "name": "Receber Mensagem",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "client_id",
+                            "value": "={{$json.client_id}}"
+                        },
+                        {
+                            "name": "lead_phone",
+                            "value": "={{$json.from}}"
+                        },
+                        {
+                            "name": "message",
+                            "value": "={{$json.message}}"
+                        },
+                        {
+                            "name": "lead_name",
+                            "value": "={{$json.name || 'Cliente'}}"
+                        },
+                        {
+                            "name": "openai_api_key",
+                            "value": "={{$json.openai_api_key}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Preparar Dados",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                200,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://equipeautomatize--agente-serv-whatsapp-fastapi-app.modal.run/webhook/execute",
+                "sendBody": true,
+                "contentType": "json",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "client_id",
+                            "value": "={{$json.client_id}}"
+                        },
+                        {
+                            "name": "lead_phone",
+                            "value": "={{$json.lead_phone}}"
+                        },
+                        {
+                            "name": "message",
+                            "value": "={{$json.message}}"
+                        },
+                        {
+                            "name": "lead_name",
+                            "value": "={{$json.lead_name}}"
+                        },
+                        {
+                            "name": "openai_api_key",
+                            "value": "={{$json.openai_api_key}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Chamar Modal",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                400,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "dataType": "string",
+                "value1": "={{$json.type}}",
+                "rules": {
+                    "rules": [
+                        {
+                            "value2": "message"
+                        },
+                        {
+                            "value2": "tool_call"
+                        },
+                        {
+                            "value2": "error"
+                        }
+                    ]
+                }
+            },
+            "name": "Tipo de Resposta",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                600,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "to",
+                            "value": "={{$node['Preparar Dados'].json.lead_phone}}"
+                        },
+                        {
+                            "name": "message",
+                            "value": "={{$json.response}}"
+                        }
+                    ],
+                    "boolean": [
+                        {
+                            "name": "success",
+                            "value": true
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Preparar Resposta WhatsApp",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                800,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{$json}}",
+                "options": {}
+            },
+            "name": "Responder Webhook Msg",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1000,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "dataType": "string",
+                "value1": "={{$json.tool_name}}",
+                "rules": {
+                    "rules": [
+                        {
+                            "value2": "check_property_availability"
+                        }
+                    ]
+                }
+            },
+            "name": "Qual Tool Executar?",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                800,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "boolean": [
+                        {
+                            "name": "available",
+                            "value": true
+                        }
+                    ],
+                    "number": [
+                        {
+                            "name": "price",
+                            "value": 450000
+                        },
+                        {
+                            "name": "bedrooms",
+                            "value": 3
+                        }
+                    ],
+                    "string": [
+                        {
+                            "name": "location",
+                            "value": "Centro"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Simular Resultado Tool",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                1000,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://equipeautomatize--agente-serv-whatsapp-fastapi-app.modal.run/webhook/tool-result",
+                "sendBody": true,
+                "contentType": "json",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "context_id",
+                            "value": "={{$node['Chamar Modal'].json.context_id}}"
+                        },
+                        {
+                            "name": "client_id",
+                            "value": "={{$node['Preparar Dados'].json.client_id}}"
+                        },
+                        {
+                            "name": "lead_phone",
+                            "value": "={{$node['Preparar Dados'].json.lead_phone}}"
+                        },
+                        {
+                            "name": "tool_name",
+                            "value": "={{$node['Chamar Modal'].json.tool_name}}"
+                        },
+                        {
+                            "name": "tool_result",
+                            "value": "={{$json}}"
+                        },
+                        {
+                            "name": "openai_api_key",
+                            "value": "={{$node['Preparar Dados'].json.openai_api_key}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Enviar Resultado ao Modal",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                1200,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "to",
+                            "value": "={{$node['Preparar Dados'].json.lead_phone}}"
+                        },
+                        {
+                            "name": "message",
+                            "value": "={{$json.response}}"
+                        }
+                    ],
+                    "boolean": [
+                        {
+                            "name": "success",
+                            "value": "={{$json.success}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Preparar Resposta Final",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                1400,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{$json}}",
+                "options": {}
+            },
+            "name": "Responder Webhook Final",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1600,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "to",
+                            "value": "={{$node['Preparar Dados'].json.lead_phone}}"
+                        },
+                        {
+                            "name": "message",
+                            "value": "Desculpe, ocorreu um erro."
+                        },
+                        {
+                            "name": "error_log",
+                            "value": "={{$json.error}}"
+                        }
+                    ],
+                    "boolean": [
+                        {
+                            "name": "success",
+                            "value": false
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Mensagem de Erro Padrão",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                800,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{$json}}",
+                "options": {
+                    "responseCode": 500
+                }
+            },
+            "name": "Responder Webhook Erro",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1000,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Receber Mensagem": {
+            "main": [
+                [
+                    {
+                        "node": "Preparar Dados",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Preparar Dados": {
+            "main": [
+                [
+                    {
+                        "node": "Chamar Modal",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Chamar Modal": {
+            "main": [
+                [
+                    {
+                        "node": "Tipo de Resposta",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tipo de Resposta": {
+            "main": [
+                [
+                    {
+                        "node": "Preparar Resposta WhatsApp",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Qual Tool Executar?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Mensagem de Erro Padrão",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Preparar Resposta WhatsApp": {
+            "main": [
+                [
+                    {
+                        "node": "Responder Webhook Msg",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Qual Tool Executar?": {
+            "main": [
+                [
+                    {
+                        "node": "Simular Resultado Tool",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Simular Resultado Tool": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar Resultado ao Modal",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Enviar Resultado ao Modal": {
+            "main": [
+                [
+                    {
+                        "node": "Preparar Resposta Final",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Preparar Resposta Final": {
+            "main": [
+                [
+                    {
+                        "node": "Responder Webhook Final",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mensagem de Erro Padrão": {
+            "main": [
+                [
+                    {
+                        "node": "Responder Webhook Erro",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

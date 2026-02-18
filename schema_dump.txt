@@ -1,0 +1,40 @@
+--- agent_configs (13 columns) ---
+[active] Type: boolean, Nullable: YES, Default: true
+[client_id] Type: uuid, Nullable: NO, Default: NULL
+[created_at] Type: timestamp without time zone, Nullable: YES, Default: now()
+[enabled_tools] Type: jsonb, Nullable: YES, Default: '[]'::jsonb
+[id] Type: uuid, Nullable: NO, Default: uuid_generate_v4()
+[max_tokens] Type: integer, Nullable: YES, Default: 1000
+[model] Type: text, Nullable: YES, Default: 'gpt-4o-mini'::text
+[openai_api_key] Type: text, Nullable: YES, Default: NULL
+[rag_enabled] Type: boolean, Nullable: YES, Default: true
+[rag_top_k] Type: integer, Nullable: YES, Default: 3
+[system_prompt] Type: text, Nullable: YES, Default: NULL
+[temperature] Type: double precision, Nullable: YES, Default: 0.7
+[updated_at] Type: timestamp without time zone, Nullable: YES, Default: now()
+
+--- clients (7 columns) ---
+[active] Type: boolean, Nullable: YES, Default: true
+[client_id] Type: text, Nullable: NO, Default: NULL
+[created_at] Type: timestamp with time zone, Nullable: YES, Default: now()
+[id] Type: uuid, Nullable: NO, Default: uuid_generate_v4()
+[industry] Type: text, Nullable: YES, Default: NULL
+[name] Type: text, Nullable: NO, Default: NULL
+[updated_at] Type: timestamp with time zone, Nullable: YES, Default: now()
+
+--- TRIGGERS (0) ---
+
+--- knowledge_base client_id ---
+[client_id] Type: text
+
+--- messages client_id ---
+[client_id] Type: text
+
+--- leads client_id ---
+[client_id] Type: text
+
+--- token_usage client_id ---
+[client_id] Type: text
+
+--- agent_learnings client_id ---
+[client_id] Type: text
