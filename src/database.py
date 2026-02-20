@@ -120,3 +120,57 @@ class SupabaseClient:
         except Exception as e:
             print(f"Error in log_token_usage: {e}")
             return None
+
+    async def get_message_count(self, client_id: str, lead_id: str) -> int:
+        """Returns total number of messages for a lead."""
+        try:
+            res = self.client.table("messages")\
+                .select("id", count="exact")\
+                .eq("client_id", client_id)\
+                .eq("lead_id", lead_id)\
+                .execute()
+            return res.count or 0
+        except Exception as e:
+            print(f"Error in get_message_count: {e}")
+            return 0
+
+    async def get_lead_summary(self, client_id: str, lead_id: str) -> str:
+        """Gets the accumulated conversation summary for a lead."""
+        try:
+            res = self.client.table("leads")\
+                .select("conversation_summary")\
+                .eq("id", lead_id)\
+                .eq("client_id", client_id)\
+                .single()\
+                .execute()
+            if res.data:
+                return res.data.get('conversation_summary') or ""
+            return ""
+        except Exception as e:
+            print(f"Error in get_lead_summary: {e}")
+            return ""
+
+    async def update_lead_summary(self, lead_id: str, summary: str):
+        """Updates the conversation summary for a lead."""
+        try:
+            self.client.table("leads")\
+                .update({"conversation_summary": summary})\
+                .eq("id", lead_id)\
+                .execute()
+        except Exception as e:
+            print(f"Error in update_lead_summary: {e}")
+
+    async def get_old_messages(self, client_id: str, lead_id: str, offset: int = 10, limit: int = 20) -> list:
+        """Gets older messages (beyond the recent window) for summarization."""
+        try:
+            res = self.client.table("messages")\
+                .select("role, content, created_at")\
+                .eq("client_id", client_id)\
+                .eq("lead_id", lead_id)\
+                .order("created_at", desc=True)\
+                .range(offset, offset + limit - 1)\
+                .execute()
+            return res.data[::-1] if res.data else []
+        except Exception as e:
+            print(f"Error in get_old_messages: {e}")
+            return []

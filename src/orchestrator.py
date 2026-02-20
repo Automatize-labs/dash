@@ -8,6 +8,7 @@ import json
 import requests
 import traceback
 import asyncio
+from openai import AsyncOpenAI
 
 class Orchestrator:
     def __init__(self, db_client: SupabaseClient):
@@ -37,21 +38,38 @@ class Orchestrator:
 
     def _get_temporal_context(self) -> str:
         from datetime import datetime
-        import locale
-        try:
-            locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8') 
-        except:
-            pass
-            
-        current_date = datetime.now()
+        from zoneinfo import ZoneInfo
+        
+        # Use São Paulo timezone (GMT-3) instead of server UTC
+        tz_sp = ZoneInfo("America/Sao_Paulo")
+        current_date = datetime.now(tz_sp)
+        
+        # Determine greeting based on hour
+        hour = current_date.hour
+        if 6 <= hour < 12:
+            saudacao = "Bom dia"
+        elif 12 <= hour < 18:
+            saudacao = "Boa tarde"
+        else:
+            saudacao = "Boa noite"
+
+        dias_semana = {
+            'Monday': 'Segunda-feira', 'Tuesday': 'Terça-feira',
+            'Wednesday': 'Quarta-feira', 'Thursday': 'Quinta-feira',
+            'Friday': 'Sexta-feira', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
+        }
+        dia_semana = dias_semana.get(current_date.strftime('%A'), current_date.strftime('%A'))
+
         return f"""
-CONTEXTO TEMPORAL:
+CONTEXTO TEMPORAL (Horário de Brasília):
 - Data atual: {current_date.strftime('%d/%m/%Y')}
-- Dia da semana: {current_date.strftime('%A')}
+- Dia da semana: {dia_semana}
 - Ano atual: {current_date.year}
 - Hora atual: {current_date.strftime('%H:%M')}
+- Saudação adequada: {saudacao}
 
 IMPORTANTE: 
+- Use SEMPRE a saudação adequada ao horário ({saudacao}).
 - Quando o cliente mencionar apenas dia/mês (ex: "20/02"), assuma o ANO ATUAL ({current_date.year}).
 - Se a data mencionada já passou neste ano, assuma o PRÓXIMO ANO ({current_date.year + 1}).
 - SEMPRE use o formato DD/MM/YYYY nas chamadas de ferramentas.
@@ -92,6 +110,96 @@ IMPORTANTE:
         else:
             print(f"[DEBUG] No isolated Supabase configured (URL='{supabase_url}'). Using Admin DB.")
             self.db = self.admin_db
+
+    async def _summarize_old_messages(self, messages: list, existing_summary: str, openai_api_key: str) -> str:
+        """
+        Uses a cheap LLM call to summarize older messages into a compact context.
+        Merges with any existing summary.
+        """
+        if not messages:
+            return existing_summary
+        
+        msgs_text = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+        
+        prompt = f"""Resuma a conversa abaixo em NO MÁXIMO 3 frases curtas em português.
+Mantenha APENAS informações essenciais: nome do cliente, o que ele quer, decisões tomadas, dados importantes (datas, valores, preferências).
+Não inclua saudações ou conversa trivial.
+
+{f'RESUMO ANTERIOR: {existing_summary}' if existing_summary else ''}
+
+NOVAS MENSAGENS:
+{msgs_text}
+
+RESUMO ATUALIZADO:"""
+
+        try:
+            client = AsyncOpenAI(api_key=openai_api_key)
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=200
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"[ERROR] Summarization failed: {e}")
+            return existing_summary
+
+    async def _build_smart_memory(self, client_id: str, lead: dict, openai_api_key: str) -> dict:
+        """
+        Builds a 3-layer memory context:
+        Layer 1: Accumulated summary of old messages (compact)
+        Layer 2: Last 10 raw messages (detailed)
+        Layer 3: Learnings + RAG (injected separately)
+        Returns: {"summary": str, "recent_messages": list[{role, content}]}
+        """
+        lead_id = lead['id']
+        
+        # Get total message count
+        total_count = await self.db.get_message_count(client_id, lead_id)
+        print(f"[MEMORY] Total messages for lead: {total_count}")
+        
+        # Get last 10 messages (raw, for detailed context)
+        recent = await self.db.get_conversation_history(client_id, lead_id, limit=10)
+        
+        # Format recent as proper chat messages
+        recent_messages = []
+        for msg in recent:
+            role = msg['role']
+            if role in ('user', 'assistant'):
+                recent_messages.append({"role": role, "content": msg['content']})
+        
+        summary = ""
+        
+        # If there are more than 10 messages, we need summarization
+        if total_count > 10:
+            # Get existing summary
+            existing_summary = await self.db.get_lead_summary(client_id, lead_id)
+            
+            if not existing_summary:
+                # First time: summarize all old messages (beyond the last 10)
+                old_msgs = await self.db.get_old_messages(client_id, lead_id, offset=10, limit=40)
+                if old_msgs:
+                    print(f"[MEMORY] Summarizing {len(old_msgs)} old messages...")
+                    summary = await self._summarize_old_messages(old_msgs, "", openai_api_key)
+                    await self.db.update_lead_summary(lead_id, summary)
+            else:
+                summary = existing_summary
+                
+                # Check if there are NEW unsummarized messages beyond the window
+                # We re-summarize every 20 new messages to keep summary fresh
+                if total_count % 20 == 0:
+                    old_msgs = await self.db.get_old_messages(client_id, lead_id, offset=10, limit=20)
+                    if old_msgs:
+                        print(f"[MEMORY] Refreshing summary with {len(old_msgs)} messages...")
+                        summary = await self._summarize_old_messages(old_msgs, existing_summary, openai_api_key)
+                        await self.db.update_lead_summary(lead_id, summary)
+        
+        print(f"[MEMORY] Summary: {summary[:100]}..." if summary else "[MEMORY] No summary needed yet")
+        return {
+            "summary": summary,
+            "recent_messages": recent_messages
+        }
 
     async def _fallback_handler(self, client_id: str, lead_phone: str, error_msg: str, webhook_url: str = None):
         """
@@ -171,15 +279,14 @@ IMPORTANTE:
         
         for attempt in range(max_retries):
             try:
-                # 5. Context Building (FROM TARGET DB)
-                history = await self.db.get_conversation_history(client_id, lead['id'], limit=10) 
-                history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in history])
+                # 5. Context Building (FROM TARGET DB) — SMART MEMORY
+                memory = await self._build_smart_memory(client_id, lead, openai_api_key)
                 
                 context = {
                     "client_id": client_id,
-                    # "lead_id": lead['id'], # REMOVED to prevent hallucination
                     "lead_phone": lead_phone,
-                    "history_str": history_str
+                    "memory_summary": memory["summary"],
+                    "recent_messages": memory["recent_messages"]
                 }
 
                 # --- INTELLIGENCE ENHANCEMENTS ---

@@ -13,6 +13,7 @@ create table if not exists leads (
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now(),
     last_followup_minutes int default 0,
+    conversation_summary text,
     unique(client_id, phone)
 );
 

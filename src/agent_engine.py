@@ -95,10 +95,19 @@ class AgentEngine:
         # 2. Prepare Messages
         messages = [
             {"role": "system", "content": system_prompt},
-            # Inject context if available
         ]
-        if context.get("history_str"):
-             messages.append({"role": "system", "content": f"Contexto da conversa:\n{context['history_str']}"})
+        
+        # Inject memory summary (Layer 1: compressed old context)
+        if context.get("memory_summary"):
+            messages.append({"role": "system", "content": f"RESUMO DA CONVERSA ANTERIOR:\n{context['memory_summary']}"})
+        
+        # Inject recent messages as real chat messages (Layer 2: detailed recent)
+        if context.get("recent_messages"):
+            for msg in context["recent_messages"]:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+        elif context.get("history_str"):
+            # Fallback for backward compatibility (resume_agent)
+            messages.append({"role": "system", "content": f"Contexto da conversa:\n{context['history_str']}"})
         
         messages.append({"role": "user", "content": user_message})
 
