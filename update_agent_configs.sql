@@ -36,6 +36,12 @@ BEGIN
     EXCEPTION
         WHEN duplicate_column THEN NULL;
     END;
+
+    BEGIN
+        ALTER TABLE agent_configs ADD COLUMN error_webhook TEXT;
+    EXCEPTION
+        WHEN duplicate_column THEN NULL;
+    END;
 END $$;
 
 -- Ensure enabled_tools is JSONB if table already exists (and it wasn't jsonb)
