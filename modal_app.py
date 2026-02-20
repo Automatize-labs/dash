@@ -194,3 +194,24 @@ def fastapi_app():
             return {"success": False, "error": str(e)}
 
     return api
+
+@app.function(
+    image=image,
+    schedule=modal.Cron("*/5 * * * *"), # Runs every 5 minutes
+    secrets=[
+        modal.Secret.from_name("supabase-secrets")
+    ]
+)
+async def run_scheduler():
+    import os
+    from src.database import SupabaseClient
+    from src.scheduler import FollowUpScheduler
+    
+    url = os.environ["SUPABASE_URL"]
+    key = os.environ["SUPABASE_SERVICE_KEY"]
+    
+    # Initialize Admin DB
+    admin_db = SupabaseClient(url, key)
+    
+    scheduler = FollowUpScheduler(admin_db)
+    await scheduler.run_check()

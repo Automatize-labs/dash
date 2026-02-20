@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Link2, LogOut, Zap, TrendingUp } from 'lucide-react'
+import { usePathname, useParams } from 'next/navigation'
+import { LayoutDashboard, Users, Link2, LogOut, Zap, TrendingUp, Settings } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +15,18 @@ const navItems = [
 
 export default function Sidebar() {
     const pathname = usePathname()
+    const params = useParams()
+    const clientId = typeof params?.client_id === 'string' ? params.client_id : null
+
+    const items = [...navItems]
+    if (clientId) {
+        // Show Settings only when inside a specific client view
+        items.push({
+            name: 'Configurações',
+            href: `/dashboard/${clientId}/configuracoes`,
+            icon: Settings
+        })
+    }
 
     return (
         <aside className="fixed left-0 top-0 z-40 h-screen w-[280px] glass-sidebar flex flex-col">
@@ -35,22 +47,13 @@ export default function Sidebar() {
 
             {/* Navigation */}
             <nav className="flex-1 px-4 py-8 space-y-2">
-                {navItems.map((item) => {
+                {items.map((item) => {
                     const isActive = item.href === '/dashboard'
-                        ? pathname === '/dashboard' || pathname.startsWith('/dashboard/novo') || (pathname.startsWith('/dashboard/') && !pathname.includes('integracoes'))
+                        ? pathname === '/dashboard' || (pathname.startsWith('/dashboard/') && !pathname.includes('integracoes') && !clientId)
                         : pathname.startsWith(item.href)
 
-                    // Special case for "Agentes" if it's meant to list agents, which acts as Dashboard/Home for now.
-                    // Let's refine: "Dashboard" goes to home. "Agentes" goes to home too? Or maybe filter? 
-                    // For now keeping simple.
-
-                    // Actually, let's make Dashboard strictly Home. 
-                    // Agentes could be same page or a specific view. 
-                    // To follow the user prompt, both seem to point to dashboard home or list.
-
-                    const isItemActive = item.href === '/dashboard' && pathname === '/dashboard' ? true :
-                        item.name === 'Agentes' && (pathname.startsWith('/dashboard/') && pathname !== '/dashboard' && !pathname.includes('integracoes')) ? true :
-                            item.href === pathname;
+                    // Refined logic for active state with dynamic items
+                    const isItemActive = item.href === pathname || pathname.startsWith(item.href)
 
                     return (
                         <Link
@@ -58,19 +61,19 @@ export default function Sidebar() {
                             href={item.href}
                             className={cn(
                                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
-                                ActiveLink(item.href, pathname)
+                                isItemActive
                                     ? "bg-white/5 text-white font-medium border border-white/5 shadow-inner"
                                     : "text-slate-400 hover:text-white hover:bg-white/5"
                             )}
                         >
-                            {ActiveLink(item.href, pathname) && (
+                            {isItemActive && (
                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-purple-500 rounded-r-full" />
                             )}
                             <item.icon
                                 size={20}
                                 className={cn(
                                     "transition-colors",
-                                    ActiveLink(item.href, pathname) ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"
+                                    isItemActive ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"
                                 )}
                             />
                             <span>{item.name}</span>

@@ -12,6 +12,7 @@ create table if not exists leads (
     status text default 'active',
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now(),
+    last_followup_minutes int default 0,
     unique(client_id, phone)
 );
 
@@ -64,9 +65,25 @@ create table if not exists follow_ups (
     created_at timestamp with time zone default now()
 );
 
--- 7. Create Indexes for Performance
+-- 7. Create Agent Learnings Table (NEW - Auto-Learning)
+create table if not exists agent_learnings (
+    id uuid primary key default uuid_generate_v4(),
+    client_id text not null,
+    lead_phone text,
+    interaction_type text, -- 'preference', 'correction', 'pattern'
+    original_input text,
+    corrected_output text,
+    context jsonb default '{}',
+    frequency int default 1,
+    last_seen timestamp with time zone default now(),
+    created_at timestamp with time zone default now()
+);
+
+-- 8. Create Indexes for Performance
 create index if not exists idx_leads_client_phone on leads(client_id, phone);
 create index if not exists idx_messages_lead_id on messages(lead_id);
 create index if not exists idx_messages_client_id on messages(client_id);
 create index if not exists idx_kb_client_id on knowledge_base(client_id);
 create index if not exists idx_follow_ups_pending on follow_ups(status, scheduled_at);
+create index if not exists idx_learnings_client on agent_learnings(client_id);
+create index if not exists idx_learnings_phone on agent_learnings(client_id, lead_phone);

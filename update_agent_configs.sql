@@ -42,6 +42,25 @@ BEGIN
     EXCEPTION
         WHEN duplicate_column THEN NULL;
     END;
+
+    -- Follow-up System Columns
+    BEGIN
+        ALTER TABLE agent_configs ADD COLUMN followup_webhook TEXT;
+    EXCEPTION
+        WHEN duplicate_column THEN NULL;
+    END;
+
+    BEGIN
+        ALTER TABLE agent_configs ADD COLUMN followup_rules JSONB DEFAULT '[]'::jsonb;
+    EXCEPTION
+        WHEN duplicate_column THEN NULL;
+    END;
+
+    BEGIN
+        ALTER TABLE agent_configs ADD COLUMN followup_enabled BOOLEAN DEFAULT FALSE;
+    EXCEPTION
+        WHEN duplicate_column THEN NULL;
+    END;
 END $$;
 
 -- Ensure enabled_tools is JSONB if table already exists (and it wasn't jsonb)
