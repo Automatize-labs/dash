@@ -1,0 +1,7 @@
+modal
+fastapi
+pydantic
+openai
+pypdf2
+supabase
+python-multipart
