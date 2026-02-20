@@ -1,6 +1,8 @@
 from .database import SupabaseClient
 from .agent_engine import AgentEngine
 from .tools_registry import ToolsRegistry
+from .rag_engine import RAGEngine
+from .learning_engine import LearningEngine
 import os
 import json
 
@@ -12,20 +14,19 @@ class Orchestrator:
     async def load_agent_config(self, client_id: str):
         try:
             # Always load config from ADMIN DB first
-            # agent_configs table now uses the UUID from clients table as foreign key
-            uuid = await self.admin_db.get_client_uuid(client_id)
-            if not uuid:
-                print(f"Client UUID not found for text_id: {client_id}")
-                return None
-                
-            res = self.admin_db.client.table("agent_configs").select("*").eq("client_id", uuid).execute()
+            # Always load config from ADMIN DB first
+            # agent_configs table now uses the text ID (slug) directly
+            res = self.admin_db.client.table("agent_configs").select("*").eq("client_id", client_id).execute()
+            
             if res.data:
                 config = res.data[0]
                 # DEBUG LOG
                 s_url = config.get('supabase_url')
-                print(f"[DEBUG] Loaded Config for {client_id} (UUID: {uuid})")
+                print(f"[DEBUG] Loaded Config for {client_id}")
                 print(f"[DEBUG] Supabase URL in DB: '{s_url}'")
                 return config
+            
+            print(f"Agent config not found for client_id: {client_id}")
             return None
         except Exception as e:
             print(f"Error loading config: {e}")
@@ -130,14 +131,40 @@ IMPORTANTE:
         
         context = {
             "client_id": client_id,
-            "lead_id": lead['id'],
+            # "lead_id": lead['id'], # REMOVED to prevent hallucination
             "lead_phone": lead_phone,
             "history_str": history_str
         }
 
         # --- INTELLIGENCE ENHANCEMENTS ---
         temporal_context = self._get_temporal_context()
-        system_prompt = f"{config['system_prompt']}\n\n{temporal_context}"
+        
+        # 5.1 RAG Injection
+        rag_context = ""
+        if config.get('rag_enabled', False):
+            try:
+                print(f"[DEBUG] RAG Enabled for {client_id}")
+                rag = RAGEngine(self.db)
+                rag_results = await rag.search(message, client_id, top_k=config.get('rag_top_k', 3))
+                if rag_results:
+                    rag_context = "\n\nBASE DE CONHECIMENTO (Use estas informações para responder):\n" + "\n---\n".join(rag_results)
+            except Exception as e:
+                print(f"[ERROR] RAG Injection failed: {e}")
+
+        # 5.2 Learning Injection
+        learning_context = ""
+        try:
+            learning = LearningEngine()
+            learnings = await learning.get_learnings(client_id, lead_phone, limit=3)
+            if learnings:
+                l_texts = []
+                for l in learnings:
+                    l_texts.append(f"- O usuário disse '{l['original_input']}' e o correto é '{l.get('corrected_output')}' (Tipo: {l.get('interaction_type')})")
+                learning_context = "\n\nAPRENDIZADOS PASSADOS (Evite cometer estes erros novamente):\n" + "\n".join(l_texts)
+        except Exception as e:
+            print(f"[ERROR] Learning Injection failed: {e}")
+
+        system_prompt = f"{config['system_prompt']}\n{rag_context}\n{learning_context}\n\n{temporal_context}"
         message = self._preprocess_message(message)
         # --- END INTELLIGENCE ENHANCEMENTS ---
 

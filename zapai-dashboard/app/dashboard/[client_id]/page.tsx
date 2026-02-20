@@ -33,7 +33,7 @@ export default async function ClientePage({ params }: PageProps) {
     const { data: config } = await supabase
         .from('agent_configs')
         .select('*')
-        .eq('client_id', client.id) // Query config by UUID
+        .eq('client_id', client.client_id) // Query config by Text ID (slug)
         .single()
 
     return (
@@ -105,11 +105,11 @@ export default async function ClientePage({ params }: PageProps) {
 
                 <div className="mt-4">
                     <TabsContent value="config" className="focus-visible:outline-none focus-visible:ring-0 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                        <AgentConfigForm clientId={client.id} config={config} />
+                        <AgentConfigForm clientId={client.client_id || client.id} config={config} />
                     </TabsContent>
 
                     <TabsContent value="tools" className="focus-visible:outline-none focus-visible:ring-0 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                        <ToolsManager clientId={client.id} config={config} />
+                        <ToolsManager clientId={client.client_id || client.id} config={config} />
                     </TabsContent>
 
                     <TabsContent value="knowledge" className="focus-visible:outline-none focus-visible:ring-0 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">

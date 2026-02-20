@@ -10,7 +10,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Plus, Trash2, FileText, UploadCloud, Search, Database } from 'lucide-react'
+import { Plus, Trash2, FileText, UploadCloud, Search, Database, Upload } from 'lucide-react'
+import { parseFile } from '@/lib/fileParser'
 
 interface KnowledgeDoc {
     id: string
@@ -152,11 +153,15 @@ export default function KnowledgeBaseManager({
 
         const payloadWithId = {
             client_id: clientId,
-            ...newDoc,
+            title: newDoc.title,
+            content: newDoc.content,
+            metadata: { category: newDoc.category, created_by: 'dashboard' }
         }
 
         const payloadWithoutId = {
-            ...newDoc
+            title: newDoc.title,
+            content: newDoc.content,
+            metadata: { category: newDoc.category, created_by: 'dashboard' }
         }
 
         let { error } = await clientToUse.from('knowledge_base').insert([payloadWithId])
@@ -224,7 +229,49 @@ export default function KnowledgeBaseManager({
                                 <DialogHeader>
                                     <DialogTitle className="text-white">Adicionar Documento</DialogTitle>
                                 </DialogHeader>
-                                <div className="space-y-4 py-4">
+                                {/* Force Deploy: File Upload Feature Enabled */}
+
+                                {/* File Upload Area - Enhanced */}
+                                <div className="bg-slate-900/50 border border-dashed border-slate-700 rounded-lg p-6 text-center hover:bg-slate-800/50 transition-colors cursor-pointer relative group"
+                                    onClick={() => document.getElementById('file-upload')?.click()}
+                                >
+                                    <input
+                                        type="file"
+                                        id="file-upload"
+                                        className="hidden"
+                                        accept=".pdf,.docx,.csv,.txt,.md"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+
+                                            try {
+                                                toast.info('Lendo arquivo...');
+                                                const parsed = await parseFile(file);
+                                                setNewDoc({
+                                                    ...newDoc,
+                                                    title: parsed.title,
+                                                    content: parsed.content,
+                                                    category: parsed.type.toUpperCase()
+                                                });
+                                                toast.success('Arquivo lido com sucesso!');
+                                            } catch (error: any) {
+                                                toast.error(error.message);
+                                            }
+                                            e.target.value = ''; // Reset input
+                                        }}
+                                    />
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="p-3 bg-blue-500/10 rounded-full group-hover:bg-blue-500/20 transition-colors">
+                                            <Upload className="text-blue-400" size={24} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-200">Clique para fazer upload</p>
+                                            <p className="text-xs text-slate-500">PDF, DOCX, CSV ou TXT</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 py-2">
                                     <div>
                                         <Label htmlFor="doc_title" className="text-slate-200">Título *</Label>
                                         <Input

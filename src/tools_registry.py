@@ -97,6 +97,40 @@ class ToolsRegistry:
                         "required": ["lead_phone", "client_id"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "save_learning",
+                    "description": "Salva uma correção, preferência ou padrão de comportamento aprendido com o usuário para usar em conversas futuras.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "client_id": {"type": "string"},
+                            "lead_phone": {"type": "string"},
+                            "interaction_type": {"type": "string", "enum": ["correction", "preference", "pattern"]},
+                            "original_input": {"type": "string", "description": "O que o usuário disse"},
+                            "corrected_output": {"type": "string", "description": "Como deveria ser respondido (se aplicável)"}
+                        },
+                        "required": ["client_id", "lead_phone", "interaction_type", "original_input"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "consult_learnings",
+                    "description": "Consulta aprendizados passados específicos para este lead ou globais.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "client_id": {"type": "string"},
+                            "lead_phone": {"type": "string"},
+                            "limit": {"type": "integer"}
+                        },
+                        "required": ["client_id", "lead_phone"]
+                    }
+                }
             }
         ]
         
@@ -129,7 +163,7 @@ class ToolsRegistry:
         return internal_tools
 
     def is_internal_tool(self, tool_name: str) -> bool:
-        internal_names = ["get_conversation_history", "search_knowledge_base", "analyze_lead_profile"]
+        internal_names = ["get_conversation_history", "search_knowledge_base", "analyze_lead_profile", "save_learning", "consult_learnings"]
         if tool_name in internal_names:
             return True
         return tool_name in getattr(self, 'dynamic_tool_map', {})
@@ -141,11 +175,27 @@ class ToolsRegistry:
             return await self.search_knowledge_base(**kwargs)
         elif tool_name == "analyze_lead_profile":
             return await self.analyze_lead_profile(**kwargs)
-        # Dynamic tools are now handled as external tools by AgentEngine
-        # So we don't execute them here.
-        # elif hasattr(self, 'dynamic_tool_map') and tool_name in self.dynamic_tool_map:
-        #     return await self.execute_dynamic_tool(tool_name, **kwargs)
+        elif tool_name == "save_learning":
+            return await self.save_learning(**kwargs)
+        elif tool_name == "consult_learnings":
+            return await self.consult_learnings(**kwargs)
         else:
             return f"Erro: Tool {tool_name} não encontrada ou é externa."
+
+    async def save_learning(self, client_id: str, lead_phone: str, interaction_type: str, original_input: str, corrected_output: str = None, context: dict = None) -> str:
+        """Salva um aprendizado"""
+        from .learning_engine import LearningEngine
+        engine = LearningEngine()
+        await engine.save_learning(client_id, lead_phone, interaction_type, original_input, corrected_output, context)
+        return "Aprendizado salvo com sucesso."
+
+    async def consult_learnings(self, client_id: str, lead_phone: str, limit: int = 5) -> str:
+        """Consulta aprendizados"""
+        from .learning_engine import LearningEngine
+        engine = LearningEngine()
+        learnings = await engine.get_learnings(client_id, lead_phone, limit)
+        if not learnings:
+            return "Nenhum aprendizado encontrado."
+        return json.dumps(learnings, indent=2, default=str)
 
 

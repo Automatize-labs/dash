@@ -23,27 +23,49 @@ export default function NovoClientePage() {
         setLoading(true)
 
         try {
-            const { data: newClient, error: clientError } = await supabase
+            // 1. Tentar criar ou buscar cliente
+            let clientData
+
+            // Primeiro tenta buscar para garantir id
+            const { data: existingClient } = await supabase
                 .from('clients')
-                .insert([
-                    {
-                        client_id: formData.client_id,
-                        name: formData.name,
-                        industry: formData.industry || null,
-                        active: true,
-                    },
-                ])
                 .select()
+                .eq('client_id', formData.client_id)
                 .single()
 
-            if (clientError) throw clientError
-            if (!newClient) throw new Error('Erro ao obter ID do cliente criado')
+            if (existingClient) {
+                clientData = existingClient
+                toast.info('Cliente já existe, configurando agente...')
+            } else {
+                const { data: newClient, error: clientError } = await supabase
+                    .from('clients')
+                    .insert([
+                        {
+                            client_id: formData.client_id,
+                            name: formData.name,
+                            industry: formData.industry || null,
+                            active: true,
+                        },
+                    ])
+                    .select()
+                    .single()
 
+                if (clientError) throw clientError
+                clientData = newClient
+            }
+
+            if (!clientData) throw new Error('Falha ao obter dados do cliente')
+
+            console.log("DEBUG: clientData", clientData)
+            console.log("DEBUG: formData.client_id", formData.client_id)
+            console.log("DEBUG: Inserting into agent_configs with client_id:", clientData.client_id) // Forcing update
+
+            // 2. Criar ou Atualizar Configuração do Agente
             const { error: configError } = await supabase
                 .from('agent_configs')
-                .insert([
+                .upsert([ // Usar upsert para evitar erro de chave duplicada
                     {
-                        client_id: newClient.id, // Use the UUID from clients table
+                        client_id: formData.client_id, // FORCE use of form data (text) which we know is valid
                         system_prompt: 'Você é um assistente virtual profissional e prestativo.',
                         model: 'gpt-4o-mini',
                         temperature: 0.7,
@@ -53,18 +75,11 @@ export default function NovoClientePage() {
                         rag_top_k: 3,
                         active: true,
                     },
-                ])
+                ], { onConflict: 'client_id' })
 
             if (configError) throw configError
 
-            toast.success('Cliente criado com sucesso!')
-            // Redirect using the text client_id for the route if that's what the page expects,
-            // or maybe we should standardise on UUID.
-            // Looking at the dashboard page, it likely uses the text client_id or UUID. 
-            // Let's stick to the text client_id for URL if the dynamic route expects it. 
-            // But wait, the dashboard pages likely fetch by client_id (text) OR id (uuid).
-            // Let's check dashboard/[client_id]/page.tsx later if needed.
-            // For now, keep redirection as is.
+            toast.success(existingClient ? 'Agente configurado!' : 'Cliente criado com sucesso!')
             router.push(`/dashboard/${formData.client_id}`)
         } catch (error: any) {
             toast.error(error.message || 'Erro ao criar cliente')

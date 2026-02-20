@@ -81,7 +81,13 @@ export default function Sidebar() {
 
             {/* User Profile */}
             <div className="p-4 border-t border-white/5 mb-4">
-                <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
+                <div
+                    onClick={async () => {
+                        await fetch('/auth/signout', { method: 'POST' })
+                        window.location.href = '/login'
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
+                >
                     <Avatar className="w-10 h-10 border border-white/10">
                         <AvatarImage src="https://github.com/shadcn.png" />
                         <AvatarFallback>AD</AvatarFallback>

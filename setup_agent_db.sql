@@ -19,7 +19,7 @@ create table if not exists leads (
 create table if not exists messages (
     id uuid primary key default uuid_generate_v4(),
     client_id text not null,
-    lead_id uuid references leads(id),
+    lead_id uuid references leads(id) on delete cascade,
     role text not null, -- 'user', 'assistant', 'system'
     content text not null,
     tokens_used int default 0,
@@ -30,7 +30,7 @@ create table if not exists messages (
 create table if not exists token_usage (
     id uuid primary key default uuid_generate_v4(),
     client_id text not null,
-    lead_id uuid references leads(id),
+    lead_id uuid references leads(id) on delete cascade,
     model text not null,
     tokens_in int default 0,
     tokens_out int default 0,
@@ -57,7 +57,7 @@ create table if not exists knowledge_base (
 create table if not exists follow_ups (
     id uuid primary key default uuid_generate_v4(),
     client_id text not null,
-    lead_id uuid references leads(id),
+    lead_id uuid references leads(id) on delete cascade,
     scheduled_at timestamp with time zone not null,
     status text default 'pending', -- 'pending', 'sent', 'cancelled'
     content text,

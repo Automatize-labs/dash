@@ -31,20 +31,29 @@ class SupabaseClient:
             print(f"Error resolving client UUID: {e}")
             return None
 
+    def sanitize_phone(self, phone: str) -> str:
+        """
+        Removes all non-numeric characters from the phone number.
+        """
+        return "".join(filter(str.isdigit, phone))
+
     async def get_or_create_lead(self, client_id: str, phone: str, name: Optional[str] = None) -> Dict[str, Any]:
         """
         Retrieves a lead by phone and client_id, or creates if not exists.
         """
         try:
+            # Sanitize phone number to prevent duplicates
+            clean_phone = self.sanitize_phone(phone)
+            
             # Check if lead exists
-            res = self.client.table("leads").select("*").eq("client_id", client_id).eq("phone", phone).execute()
+            res = self.client.table("leads").select("*").eq("client_id", client_id).eq("phone", clean_phone).execute()
             if res.data:
                 return res.data[0]
             
             # Create new lead
             new_lead = {
                 "client_id": client_id,
-                "phone": phone,
+                "phone": clean_phone,
                 "name": name,
                 "status": "active"
             }

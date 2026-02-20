@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  /* Apexify-inspired Purple Theme (Default Dark) */
+  --background: 260 20% 4%;
+  /* Very dark purple/black #09080c */
+  --foreground: 210 40% 98%;
+
+  --card: 260 20% 8%;
+  /* Slightly lighter #121016 */
+  --card-foreground: 210 40% 98%;
+
+  --popover: 260 20% 8%;
+  --popover-foreground: 210 40% 98%;
+
+  --primary: 265 89% 66%;
+  /* Vibrant Purple #8b5cf6 */
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 260 20% 15%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 260 20% 15%;
+  --muted-foreground: 215 20.2% 65.1%;
+
+  --accent: 265 89% 66%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 260 20% 12%;
+  --input: 260 20% 12%;
+  --ring: 265 89% 66%;
+
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Apexify Utilities */
+.glass-panel {
+  @apply bg-[#141218] border border-white/5 shadow-2xl;
+}
+
+.purple-glow {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+}
+
+.purple-gradient-card {
+  background: linear-gradient(135deg, #1e1b29 0%, #0f0e13 100%);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.active-nav-item {
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.1) 0%, transparent 100%);
+  border-left: 3px solid #8b5cf6;
+}
